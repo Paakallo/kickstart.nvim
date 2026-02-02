@@ -250,9 +250,6 @@ vim.o.expandtab = true -- Pressing the TAB key will insert spaces instead of a T
 vim.o.softtabstop = 4 -- Number of spaces inserted instead of a TAB character
 vim.o.shiftwidth = 4 -- Number of spaces inserted when indenting
 
--- LSP
-vim.lsp.enable('clangd', true)
-
 -- NOTE: Here is where you install your plugins.
 require('lazy').setup({
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
@@ -680,7 +677,7 @@ require('lazy').setup({
       --  - settings (table): Override the default settings passed when initializing the server.
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
-        -- clangd = {},
+        clangd = {},
         -- gopls = {},
         -- pyright = {},
         -- rust_analyzer = {},
@@ -999,6 +996,61 @@ require('lazy').setup({
   -- Or use telescope!
   -- In normal mode type `<space>sh` then write `lazy.nvim-plugin`
   -- you can continue same window with `<space>sr` which resumes last telescope search
+
+  -- DAP plugin
+  {
+    'mfussenegger/nvim-dap',
+    dependencies = {
+      'williamboman/mason.nvim',
+      'jay-babu/mason-nvim-dap.nvim',
+    },
+    config = function()
+      require('mason-nvim-dap').setup {
+        ensure_installed = { 'cpptools' },
+        automatic_installation = true,
+        handlers = {
+          function(config)
+            require('mason-nvim-dap').default_setup(config)
+          end,
+        },
+      }
+
+      local dap = require 'dap'
+      dap.configurations.cpp = {
+        {
+          name = 'Launch file',
+          type = 'cppdbg',
+          request = 'launch',
+          program = function()
+            return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+          end,
+          cwd = '${workspaceFolder}',
+          stopAtEntry = true,
+        },
+      }
+      dap.configurations.c = dap.configurations.cpp
+    end,
+  },
+
+  -- DAP GUI
+  {
+    'rcarriga/nvim-dap-ui',
+    dependencies = { 'mfussenegger/nvim-dap', 'nvim-neotest/nvim-nio' },
+    config = function()
+      local dap = require 'dap'
+      local dapui = require 'dapui'
+      dapui.setup()
+      dap.listeners.after.event_initialized['dapui_config'] = function()
+        dapui.open()
+      end
+      dap.listeners.before.event_terminated['dapui_config'] = function()
+        dapui.close()
+      end
+      dap.listeners.before.event_exited['dapui_config'] = function()
+        dapui.close()
+      end
+    end,
+  },
 }, {
   ui = {
     -- If you are using a Nerd Font: set icons to an empty table which will use the
