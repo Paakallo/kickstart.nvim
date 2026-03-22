@@ -290,6 +290,20 @@ require('lazy').setup({
     },
   },
 
+  -- folder sidebar
+  {
+    'nvim-neo-tree/neo-tree.nvim',
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+      'nvim-tree/nvim-web-devicons', -- provides the cool icons
+      'MunifTanjim/nui.nvim',
+    },
+    keys = {
+      -- This maps the backslash key (\) to open and close the sidebar
+      { '\\', '<cmd>Neotree toggle<cr>', desc = 'Toggle File Explorer' },
+    },
+  },
+
   -- NOTE: Plugins can also be configured to run Lua code when they are loaded.
   --
   -- This is often very useful to both group configuration, as well as handle
