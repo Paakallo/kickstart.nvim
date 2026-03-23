@@ -184,11 +184,11 @@ vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagn
 -- or just use <C-\><C-n> to exit terminal mode
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
 
--- TIP: Disable arrow keys in normal mode
-vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
-vim.keymap.set('n', '<right>', '<cmd>echo "Use l to move!!"<CR>')
-vim.keymap.set('n', '<up>', '<cmd>echo "Use k to move!!"<CR>')
-vim.keymap.set('n', '<down>', '<cmd>echo "Use j to move!!"<CR>')
+-- Resize windows using arrow keys
+vim.keymap.set('n', '<Up>', '<cmd>resize -2<CR>', { desc = 'Increase window height' })
+vim.keymap.set('n', '<Down>', '<cmd>resize +2<CR>', { desc = 'Decrease window height' })
+vim.keymap.set('n', '<Left>', '<cmd>vertical resize +2<CR>', { desc = 'Decrease window width' })
+vim.keymap.set('n', '<Right>', '<cmd>vertical resize -2<CR>', { desc = 'Increase window width' })
 
 -- Keybinds to make split navigation easier.
 --  Use CTRL+<hjkl> to switch between windows
@@ -304,12 +304,24 @@ require('lazy').setup({
     },
   },
 
+  -- :Git command
   {
     'tpope/vim-fugitive',
     config = function()
       -- Pressing <space> + g + s will open a great interactive Git status window
       vim.keymap.set('n', '<leader>gs', vim.cmd.Git, { desc = '[G]it [S]tatus' })
     end,
+  },
+
+  -- toggle between terminal and window
+  {
+    'akinsho/toggleterm.nvim',
+    version = '*',
+    opts = {
+      size = 15, -- How tall the terminal should be
+      open_mapping = [[<c-\>]], -- Press Ctrl + \ to toggle it open and closed
+      direction = 'horizontal', -- Opens at the bottom (can also be 'float' or 'vertical')
+    },
   },
 
   -- NOTE: Plugins can also be configured to run Lua code when they are loaded.
