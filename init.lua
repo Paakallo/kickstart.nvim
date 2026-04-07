@@ -184,11 +184,11 @@ vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagn
 -- or just use <C-\><C-n> to exit terminal mode
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
 
--- TIP: Disable arrow keys in normal mode
-vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
-vim.keymap.set('n', '<right>', '<cmd>echo "Use l to move!!"<CR>')
-vim.keymap.set('n', '<up>', '<cmd>echo "Use k to move!!"<CR>')
-vim.keymap.set('n', '<down>', '<cmd>echo "Use j to move!!"<CR>')
+-- Resize windows using arrow keys
+vim.keymap.set('n', '<Up>', '<cmd>resize -2<CR>', { desc = 'Increase window height' })
+vim.keymap.set('n', '<Down>', '<cmd>resize +2<CR>', { desc = 'Decrease window height' })
+vim.keymap.set('n', '<Left>', '<cmd>vertical resize +2<CR>', { desc = 'Decrease window width' })
+vim.keymap.set('n', '<Right>', '<cmd>vertical resize -2<CR>', { desc = 'Increase window width' })
 
 -- Keybinds to make split navigation easier.
 --  Use CTRL+<hjkl> to switch between windows
@@ -198,6 +198,10 @@ vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left wind
 vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
 vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
 vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
+
+-- Move highlighted lines up and down in visual mode
+vim.keymap.set('v', '<A-j>', ":m '>+1<CR>gv=gv", { desc = 'Move selection down' })
+vim.keymap.set('v', '<A-k>', ":m '<-2<CR>gv=gv", { desc = 'Move selection up' })
 
 -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
 -- vim.keymap.set("n", "<C-S-h>", "<C-w>H", { desc = "Move window to the left" })
@@ -218,6 +222,64 @@ vim.api.nvim_create_autocmd('TextYankPost', {
     vim.hl.on_yank()
   end,
 })
+
+-- =====================================================================
+-- FUN RANDOM PNG VIEWER (USING FEH)
+-- =====================================================================
+vim.api.nvim_create_autocmd('VimEnter', {
+  -- Create a group so it doesn't duplicate if you reload your config
+  group = vim.api.nvim_create_augroup('RandomImagePopup', { clear = true }),
+  callback = function()
+    -- 1. DEFINE YOUR FOLDER PATH HERE (Make sure it ends with a slash /)
+    local image_dir = vim.fn.expand '~/Pictures/'
+
+    -- 2. Get a list of all PNGs in that folder
+    local pngs = vim.split(vim.fn.glob(image_dir .. '*.png'), '\n')
+
+    -- If the folder is empty or path is wrong, silently do nothing
+    if #pngs == 0 or pngs[1] == '' then
+      return
+    end
+
+    -- 3. Pick a random PNG
+    math.randomseed(os.time())
+    local random_png = pngs[math.random(1, #pngs)]
+
+    -- 4. Launch feh as a background job
+    --   -x : Hides the window border for a cleaner look
+    --   -. : Scales the image down if it is larger than your screen
+    local job_id = vim.fn.jobstart { 'feh', '-x', '-.', random_png }
+
+    -- 5. Auto-close the feh window after 2000 milliseconds (2 seconds)
+    if job_id > 0 then
+      vim.defer_fn(function()
+        vim.fn.jobstop(job_id)
+      end, 2000)
+    end
+  end,
+})
+
+-- =====================================================================
+-- WSL FIX: AUTO-CONVERT CRLF TO LF
+-- =====================================================================
+
+-- Automatically force Unix line endings (LF) right before saving any file
+vim.api.nvim_create_autocmd('BufWritePre', {
+  group = vim.api.nvim_create_augroup('ForceUnixLineEndings', { clear = true }),
+  pattern = '*',
+  callback = function()
+    vim.bo.fileformat = 'unix'
+  end,
+})
+
+-- Create a quick manual command to scrub the file while you are editing it
+vim.api.nvim_create_user_command('Dos2Unix', function()
+  -- This regex silently searches for and destroys any \r (^M) characters
+  vim.cmd 'silent! %s/\\r$//g'
+  vim.bo.fileformat = 'unix'
+  -- Clear the search highlight so it doesn't leave your screen yellow
+  vim.cmd 'nohlsearch'
+end, { desc = 'Instantly scrub Windows carriage returns' })
 
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
@@ -287,6 +349,178 @@ require('lazy').setup({
         topdelete = { text = '‾' },
         changedelete = { text = '~' },
       },
+    },
+  },
+
+  -- folder sidebar
+  {
+    'nvim-neo-tree/neo-tree.nvim',
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+      'nvim-tree/nvim-web-devicons', -- provides the cool icons
+      'MunifTanjim/nui.nvim',
+    },
+    keys = {
+      -- This maps the backslash key (\) to open and close the sidebar
+      { '\\', '<cmd>Neotree toggle<cr>', desc = 'Toggle File Explorer' },
+    },
+  },
+
+  -- :Git command
+  {
+    'tpope/vim-fugitive',
+    config = function()
+      -- Pressing <space> + g + s will open a great interactive Git status window
+      vim.keymap.set('n', '<leader>gs', vim.cmd.Git, { desc = '[G]it [S]tatus' })
+    end,
+  },
+
+  -- toggle between terminal and window
+  {
+    'akinsho/toggleterm.nvim',
+    version = '*',
+    opts = {
+      size = 15, -- How tall the terminal should be
+      open_mapping = [[<c-\>]], -- Press Ctrl + \ to toggle it open and closed
+      direction = 'horizontal', -- Opens at the bottom (can also be 'float' or 'vertical')
+    },
+  },
+
+  -- LazyDocker akin to Docker Desktop
+  {
+    'crnvl96/lazydocker.nvim',
+    -- Set a keymap to toggle lazydocker in both normal and terminal modes
+    keys = {
+      { '<leader>ld', '<Cmd>lua require("lazydocker").toggle({ engine = "docker" })<CR>', desc = '[L]azy[D]ocker', mode = { 'n', 't' } },
+    },
+    opts = {
+      -- You can customize the floating window here if you like
+      window = {
+        settings = {
+          width = 0.8, -- Takes up 80% of screen width
+          height = 0.8,
+          border = 'rounded',
+        },
+      },
+    },
+  },
+
+  -- jump anywhere on screen instantly
+  {
+    'folke/flash.nvim',
+    event = 'VeryLazy',
+    opts = {},
+    keys = {
+      {
+        's',
+        mode = { 'n', 'x', 'o' },
+        function()
+          require('flash').jump()
+        end,
+        desc = 'Flash Jump',
+      },
+    },
+  },
+
+  -- Problems Panel
+  {
+    'folke/trouble.nvim',
+    dependencies = { 'nvim-tree/nvim-web-devicons' },
+    opts = {},
+    keys = {
+      { '<leader>xx', '<cmd>Trouble diagnostics toggle<cr>', desc = 'Toggle Diagnostics (Trouble)' },
+      { '<leader>xw', '<cmd>Trouble diagnostics toggle filter.buf=0<cr>', desc = 'Buffer Diagnostics (Trouble)' },
+    },
+  },
+
+  -- Fast File Switching
+  {
+    'ThePrimeagen/harpoon',
+    branch = 'harpoon2',
+    dependencies = { 'nvim-lua/plenary.nvim' },
+    config = function()
+      local harpoon = require 'harpoon'
+      harpoon:setup()
+
+      -- Add current file to Harpoon list
+      vim.keymap.set('n', '<leader>a', function()
+        harpoon:list():add()
+      end, { desc = 'Harpoon [A]dd' })
+      -- View all Harpooned files
+      vim.keymap.set('n', '<C-e>', function()
+        harpoon.ui:toggle_quick_menu(harpoon:list())
+      end, { desc = 'Harpoon Menu' })
+
+      -- Instantly jump to files 1, 2, 3, or 4
+      vim.keymap.set('n', '<A-1>', function()
+        harpoon:list():select(1)
+      end, { desc = 'Harpoon File 1' })
+      vim.keymap.set('n', '<A-2>', function()
+        harpoon:list():select(2)
+      end, { desc = 'Harpoon File 2' })
+      vim.keymap.set('n', '<A-3>', function()
+        harpoon:list():select(3)
+      end, { desc = 'Harpoon File 3' })
+      vim.keymap.set('n', '<A-4>', function()
+        harpoon:list():select(4)
+      end, { desc = 'Harpoon File 4' })
+    end,
+  },
+
+  -- file-manager
+  {
+    'stevearc/oil.nvim',
+    dependencies = { 'nvim-tree/nvim-web-devicons' },
+    config = function()
+      require('oil').setup {
+        -- This tells Oil to replace the default Neovim file explorer (netrw)
+        default_file_explorer = true,
+        -- Set this to true to show hidden files (like .git or .env) by default
+        view_options = {
+          show_hidden = true,
+        },
+      }
+      -- The standard hotkey to open Oil is the minus key
+      vim.keymap.set('n', '-', '<CMD>Oil<CR>', { desc = 'Open parent directory' })
+    end,
+  },
+
+  -- ssh (God help us)
+  {
+    'amitds1997/remote-nvim.nvim',
+    version = '*', -- Pin to GitHub releases
+    dependencies = {
+      'nvim-lua/plenary.nvim', -- For standard functions
+      'MunifTanjim/nui.nvim', -- To build the UI
+      'nvim-telescope/telescope.nvim', -- For picking b/w different remote methods
+    },
+    config = true,
+  },
+
+  -- 1. Jupytext: Opens .ipynb files seamlessly as Python text
+  {
+    'goerz/jupytext.vim',
+    config = function()
+      -- Tells jupytext to format the file with # %% markers for cells (like VS Code)
+      vim.g.jupytext_fmt = 'py:percent'
+    end,
+  },
+
+  -- 2. Molten: The VS Code-like Jupyter execution engine
+  {
+    'benlubas/molten-nvim',
+    version = '^1.0.0', -- Pin version for stability
+    build = ':UpdateRemotePlugins',
+    init = function()
+      -- Limits the output window height so it doesn't take up your whole screen
+      vim.g.molten_output_win_max_height = 20
+    end,
+    keys = {
+      { '<leader>mi', '<cmd>MoltenInit<cr>', desc = '[M]olten [I]nitialize' },
+      { '<leader>mc', '<cmd>MoltenEvaluateVisual<cr>', mode = 'v', desc = '[M]olten evaluate [C]ell (Visual)' },
+      { '<leader>ml', '<cmd>MoltenEvaluateLine<cr>', desc = '[M]olten evaluate [L]ine' },
+      { '<leader>mo', '<cmd>MoltenShowOutput<cr>', desc = '[M]olten show [O]utput' },
+      { '<leader>md', '<cmd>MoltenDelete<cr>', desc = '[M]olten [D]elete Cell' },
     },
   },
 
@@ -679,7 +913,8 @@ require('lazy').setup({
       local servers = {
         clangd = {},
         -- gopls = {},
-        -- pyright = {},
+        pylsp = {},
+        cmake = {},
         -- rust_analyzer = {},
         -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
         --
