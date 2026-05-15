@@ -224,6 +224,103 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 })
 
 -- =====================================================================
+-- CUSTOM BUILD AND RUN SYSTEM
+-- =====================================================================
+
+-- Helper function to check if a file exists in the current directory
+local function file_exists(name)
+  local f = io.open(name, 'r')
+  if f ~= nil then
+    io.close(f)
+    return true
+  else
+    return false
+  end
+end
+
+-- 1. BUILD COMMAND (<leader>cb)
+vim.keymap.set('n', '<leader>cb', function()
+  -- Save the current file before doing anything
+  vim.cmd 'silent! write'
+  local ft = vim.bo.filetype
+  local file = vim.fn.expand '%'
+  local basename = vim.fn.expand '%:r'
+
+  if file_exists 'Makefile' then
+    -- Pop up a Telescope selection menu for Make targets
+    vim.ui.select({ 'all', 'app', 'test', 'clean', 'custom...' }, {
+      prompt = 'Select Make Target:',
+    }, function(choice)
+      -- If you hit Escape, do nothing
+      if not choice then
+        return
+      end
+
+      if choice == 'custom...' then
+        -- Allow typing a manual target if it's not in the list
+        local custom_target = vim.fn.input 'Enter make target: '
+        if custom_target ~= '' then
+          vim.cmd('TermExec cmd="make ' .. custom_target .. '"')
+        end
+      else
+        -- Run the selected target
+        vim.cmd('TermExec cmd="make ' .. choice .. '"')
+      end
+    end)
+  elseif file_exists 'CMakeLists.txt' then
+    vim.cmd 'TermExec cmd="cmake -B build && cmake --build build"'
+  elseif ft == 'cpp' then
+    vim.cmd('TermExec cmd="g++ ' .. file .. ' -o ' .. basename .. '"')
+  elseif ft == 'c' then
+    vim.cmd('TermExec cmd="gcc ' .. file .. ' -o ' .. basename .. '"')
+  elseif ft == 'python' then
+    print 'Python is interpreted! Just hit the Run button (<leader>cr).'
+  else
+    print('No build system configured for filetype: ' .. ft)
+  end
+end, { desc = '[C]ode [B]uild' })
+
+-- 2. RUN COMMAND (<leader>cr)
+vim.keymap.set('n', '<leader>cr', function()
+  vim.cmd 'silent! write'
+  local ft = vim.bo.filetype
+  local file = vim.fn.expand '%'
+  local basename = vim.fn.expand '%:r'
+
+  -- 1. Check for Make/CMake project first
+  if file_exists 'Makefile' or file_exists 'CMakeLists.txt' then
+    -- Pop up Telescope to ask WHICH binary to run
+    vim.ui.select({ 'app', 'test', 'custom...' }, {
+      prompt = 'Select Binary to Run:',
+    }, function(choice)
+      if not choice then
+        return
+      end -- Escaped menu
+
+      if choice == 'custom...' then
+        local custom_bin = vim.fn.input 'Enter binary path (e.g., ./bin/app): '
+        if custom_bin ~= '' then
+          vim.cmd('TermExec cmd="' .. custom_bin .. '"')
+        end
+      else
+        -- Smart execution: tries root folder first, then falls back to build/ folder
+        vim.cmd('TermExec cmd="./' .. choice .. ' || ./build/' .. choice .. '"')
+      end
+    end)
+
+  -- 2. Python Fallback
+  elseif ft == 'python' then
+    vim.cmd('TermExec cmd="python3 ' .. file .. '"')
+
+  -- 3. Single C/C++ File Fallback (No Makefile present)
+  elseif ft == 'c' or ft == 'cpp' then
+    vim.cmd('TermExec cmd="./' .. basename .. '"')
+  else
+    print('Run command not configured for filetype: ' .. ft)
+  end
+end, { desc = '[C]ode [R]un' })
+
+-- =====================================================================
 -- FUN RANDOM PNG VIEWER (USING FEH)
 -- =====================================================================
 vim.api.nvim_create_autocmd('VimEnter', {
